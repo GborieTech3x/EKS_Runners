@@ -12,7 +12,6 @@ variable "tags" {
 variable "eks_nodes" {
   type = list(object({
     name = string
-
     policies = list(object({
       arn = string
     }))
