@@ -46,7 +46,7 @@ jobs:
           - env: prd_plan
             tf_env: prd
 
-
+# Unique S3 bucket and AWS credentials per environment. 
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -64,9 +64,9 @@ jobs:
       - name: Terraform Init
         run: |
           terraform init \
-            -backend-config="bucket=${{ matrix.tf_backend_bucket }}" \
-            -backend-config="region=${{ matrix.tf_backend_region }}" \
-            -backend-config="dynamodb_table=${{ matrix.tf_dynamo_table }}" \
+            -backend-config="bucket=${{ env.tf_backend_bucket }}" \
+            -backend-config="region=${{ env.tf_backend_region }}" \
+            -backend-config="dynamodb_table=${{ env.tf_dynamo_table }}" \
             -backend-config="encrypt=true" \
             -backend-config="key=terraform.tfstate"
         working-directory: terraform/
@@ -135,9 +135,9 @@ jobs:
       - name: Terraform Init
         run: |
           terraform init \
-            -backend-config="bucket=${{ matrix.tf_backend_bucket }}" \
-            -backend-config="region=${{ matrix.tf_backend_region }}" \
-            -backend-config="dynamodb_table=${{ matrix.tf_dynamo_table }}" \
+            -backend-config="bucket=${{ env.tf_backend_bucket }}" \
+            -backend-config="region=${{ env.tf_backend_region }}" \
+            -backend-config="dynamodb_table=${{ env.tf_dynamo_table }}" \
             -backend-config="encrypt=true" \
             -backend-config="key=terraform.tfstate"
         working-directory: terraform/
