@@ -1,0 +1,187 @@
+name: Terraform Plan & Apply (Matrix)
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # -------------------------------------------------
+  # Lint JOB — runs in parallel to the plan job on every PR
+  # -------------------------------------------------
+  lint:
+    name: Super Linter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/super-linter/slim@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_TERRAFORM_TERRAFORMFMT: true
+          VALIDATE_TERRAFORM_TERRALINT: true
+  # -------------------------------------------------
+  # PLAN JOB — runs for each env on every PR
+  # -------------------------------------------------
+  plan:
+    name: Terraform Plan (${{ matrix.env }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - env: mgmt_plan
+            tf_env: mgmt
+            aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            tf_backend_bucket: ${{ vars.TF_BACKEND_BUCKET }} # S3 Bucket per environment/account
+            tf_backend_region: ${{ vars.TF_BACKEND_REGION }}
+            tf_dynamo_table: ${{ vars.TF_DYNAMO_TABLE }}
+            region: ${{ vars.REGION}}
+
+          - env: dev_plan
+            tf_env: dev
+            aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            tf_backend_bucket: ${{ vars.TF_BACKEND_BUCKET }}
+            tf_backend_region: ${{ vars.TF_BACKEND_REGION }}
+            tf_dynamo_table: ${{ vars.TF_DYNAMO_TABLE }}
+            region: ${{ vars.REGION}}
+
+          - env: stg_plan
+            tf_env: stg
+            aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            tf_backend_bucket: ${{ vars.TF_BACKEND_BUCKET }}
+            tf_backend_region: ${{ vars.TF_BACKEND_REGION }}
+            tf_dynamo_table: ${{ vars.TF_DYNAMO_TABLE }}
+            region: ${{ vars.REGION}}
+
+          - env: prd_plan
+            tf_env: prd
+            aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            tf_backend_bucket: ${{ vars.TF_BACKEND_BUCKET }}
+            tf_backend_region: ${{ vars.TF_BACKEND_REGION }}
+            tf_dynamo_table: ${{ vars.TF_DYNAMO_TABLE }}
+            region: ${{ vars.REGION}}
+
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ matrix.aws_access_key_id}}
+      AWS_SECRET_ACCESS_KEY: ${{ matrix.aws_secret_access_key}}
+      GLOBAL_TFVARS: config/${{ matrix.region}}/global.tfvars
+      ENV_TFVARS: config/${{ vars.REGION }}/${{ matrix.tf_env }}.tfvars
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ matrix.tf_backend_bucket }}" \
+            -backend-config="region=${{ matrix.tf_backend_region }}" \
+            -backend-config="dynamodb_table=${{ matrix.tf_dynamo_table }}" \
+            -backend-config="encrypt=true" \
+            -backend-config="key=terraform.tfstate"
+        working-directory: terraform/
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -var-file=${{ env.GLOBAL_TFVARS }} -var-file=${{ env.ENV_TFVARS }} -out=tfplan | tee tfplan.txt
+        working-directory: terraform/
+
+      - name: Comment PR with Plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('tfplan.txt', 'utf8');
+            const body = `### Terraform Plan for **${{ matrix.env }}** 🏗️\n\`\`\`hcl\n${plan}\n\`\`\``;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+  # -------------------------------------------------
+  # APPLY JOB — runs only after merge to main
+  # ${env}_apply environments are guarded with approval gates
+  # -------------------------------------------------
+  
+  apply:
+    name: Terraform Apply (${{ matrix.env }})
+    runs-on: ubuntu-latest
+    needs: plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+
+    strategy:
+      matrix:
+        include:
+          - env: mgmt_apply
+            tf_env: mgmt
+            aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            tf_backend_bucket: ${{ vars.TF_BACKEND_BUCKET }} # S3 Bucket per environment/account
+            tf_backend_region: ${{ vars.TF_BACKEND_REGION }}
+            tf_dynamo_table: ${{ vars.TF_DYNAMO_TABLE }}
+            region: ${{ vars.REGION}}
+
+          - env: dev_apply
+            tf_env: dev
+            aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            tf_backend_bucket: ${{ vars.TF_BACKEND_BUCKET }}
+            tf_backend_region: ${{ vars.TF_BACKEND_REGION }}
+            tf_dynamo_table: ${{ vars.TF_DYNAMO_TABLE }}
+            region: ${{ vars.REGION}}
+
+          - env: stg_apply
+            tf_env: stg
+            aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            tf_backend_bucket: ${{ vars.TF_BACKEND_BUCKET }}
+            tf_backend_region: ${{ vars.TF_BACKEND_REGION }}
+            tf_dynamo_table: ${{ vars.TF_DYNAMO_TABLE }}
+            region: ${{ vars.REGION}}
+
+          - env: prd_apply
+            tf_env: prd
+            aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            tf_backend_bucket: ${{ vars.TF_BACKEND_BUCKET }}
+            tf_backend_region: ${{ vars.TF_BACKEND_REGION }}
+            tf_dynamo_table: ${{ vars.TF_DYNAMO_TABLE }}
+            region: ${{ vars.REGION}}
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ matrix.aws_access_key_id}}
+      AWS_SECRET_ACCESS_KEY: ${{ matrix.aws_secret_access_key}}
+      GLOBAL_TFVARS: config/${{ matrix.region}}/global.tfvars
+      ENV_TFVARS: config/${{ vars.REGION }}/${{ matrix.tf_env }}.tfvars
+
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ matrix.tf_backend_bucket }}" \
+            -backend-config="region=${{ matrix.tf_backend_region }}" \
+            -backend-config="dynamodb_table=${{ matrix.tf_dynamo_table }}" \
+            -backend-config="encrypt=true" \
+            -backend-config="key=terraform.tfstate"
+        working-directory: terraform/
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var-file=${{ env.GLOBAL_TFVARS }} -var-file=${{ env.ENV_TFVARS }}
