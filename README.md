@@ -15,7 +15,7 @@ It includes:
 - Modular structure designed for reuse across environments.
 - Future CI/CD integration via a shared Terraform pipeline template.
 
-Once complete, this repository will represent a **production-ready EKS runner platform** — secure, monitored, and extensible across AWS accounts.
+Once complete, this repository will represent a **production-ready EKS runner platform** - secure, monitored, and extensible across AWS accounts.
 
 ---
 
