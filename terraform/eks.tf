@@ -6,20 +6,16 @@ resource "aws_eks_cluster" "main" {
   role_arn = aws_iam_role.eks_cluster_role.arn
 
   vpc_config {
-    subnet_ids              = [aws_subnet.prv-az1.id, aws_subnet.prv-az2.id, aws_subnet.prv-az3.id]
+    subnet_ids              = [aws_subnet.placeholder]
     endpoint_private_access = true
-    endpoint_public_access  = true
-    public_access_cidrs     = ["${trimspace(data.http.get_public_ip.response_body)}/32"]
+    endpoint_public_access  = false
     security_group_ids      = [aws_security_group.eks_sg.id]
   }
 
   enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 
 
-  depends_on = [
-    aws_iam_role_policy_attachment.eks_cluster_AmazonEKSClusterPolicy,
-    aws_iam_role_policy_attachment.eks_cluster_AmazonEKSVPCResourceController,
-  ]
+  depends_on = [aws_iam_role_policy_attachment.eks_cluster_policies]
 }
 
 resource "aws_eks_addon" "add_ons" {
@@ -56,6 +52,6 @@ resource "aws_eks_node_group" "node_group" {
   }
 
   instance_types = ["t3.large"]
-  depends_on     = [aws_eks_addon.add_ons["kube-proxy"]]
+  depends_on     = [aws_iam_role_policy_attachment.eks_node_policies]
 }
 

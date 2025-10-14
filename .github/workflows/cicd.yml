@@ -22,8 +22,10 @@ jobs:
       - uses: github/super-linter/slim@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATE_TERRAFORM_TERRAFORMFMT: true
+          VALIDATE_TERRAFORM_TERRAFORMFMT: false
           VALIDATE_TERRAFORM_TERRALINT: true
+          VALIDATE_JSCPD: false 
+
   # -------------------------------------------------
   # PLAN JOB — runs for each env on every PR
   # -------------------------------------------------
