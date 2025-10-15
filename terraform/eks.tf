@@ -9,7 +9,7 @@ resource "aws_eks_cluster" "main" {
     subnet_ids              = [aws_subnet.placeholder]
     endpoint_private_access = true
     endpoint_public_access  = false
-    security_group_ids      = [aws_security_group.eks_sg.id]
+    security_group_ids      = [aws_security_group.nsgs[*].id]
   }
 
   enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
@@ -37,9 +37,9 @@ resource "aws_eks_addon" "add_ons" {
 resource "aws_eks_node_group" "node_group" {
   for_each        = { for node in var.eks_nodes : node.name => node }
   cluster_name    = aws_eks_cluster.main.name
-  node_group_name = "eks-runners-node-group"
+  node_group_name = each.value.node_group_name
   node_role_arn   = aws_iam_role.node_group_roles.arn
-  subnet_ids      = [aws_subnet.prv-az1.id, aws_subnet.prv-az2.id, aws_subnet.prv-az3.id]
+  subnet_ids      = [aws_subnet.snets[*].id]
 
   scaling_config {
     desired_size = 1
